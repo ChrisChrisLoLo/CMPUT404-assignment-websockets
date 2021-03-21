@@ -3,19 +3,19 @@
   <head> 
     <title>Websockets Assignment</title> 
     <meta charset="utf-8" /> 
-    <meta content='width=device-width; height=device-height; initial-scale=1.0; maximum-scale=1.0; user-scalable=0;' name='viewport' />
+    <meta content='width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=0' name='viewport' />
     <meta name="viewport" content="width=device-width" />
     <meta name="license" content="
         Copyright 2013 Google, Abram Hindle
         
-        Licensed under the Apache License, Version 2.0 (the "License");
+        Licensed under the Apache License, Version 2.0 (the 'License');
         you may not use this file except in compliance with the License.
         You may obtain a copy of the License at
         
             http://www.apache.org/licenses/LICENSE-2.0
         
         Unless required by applicable law or agreed to in writing, software
-        distributed under the License is distributed on an "AS IS" BASIS,
+        distributed under the License is distributed on an 'AS IS' BASIS,
         WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
         See the License for the specific language governing permissions and
         limitations under the License.
@@ -47,15 +47,16 @@ world = {};
 //XXX: TODO Make this prettier!
 function drawCircle(context,entity) {
     with(context) {
-        beginPath();                
+        beginPath();              
         lineWidth = 3;
         var x = entity["x"];
         var y = entity["y"];
         //moveTo(x,y);
         fillStyle = entity["colour"];
         strokeStyle = fillStyle;
-        arc(x, y, (entity["radius"])?entity["radius"]:50, 0, 2.0 * Math.PI, false);  
-        stroke();                                
+        arc(x, y, (entity["radius"])?entity["radius"]:50, 0, 2.0 * Math.PI, false);
+        fill();
+        stroke();
     }
 }
 
@@ -125,6 +126,7 @@ function addEntity(entity, data) {
     world[entity] = data;
     drawNextFrame(); // (but should we?)
     //XXX: Send a XHTML Request that updates the entity you just modified!
+    socket.send(JSON.stringify({entity,data}));
 }
 var counter = 0;
 function addEntityWithoutName(data) {
@@ -231,15 +233,15 @@ mouse = (function() {
 // Add the application specific mouse listeners!
 //XXX: TODO Make these prettier!
 mouse.mousedowners.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'blue'});
+    addEntityWithoutName({'x':x,'y':y,'colour':'rgba(52,211,153,0.5)','radius':15});
 });
 
 mouse.mouseuppers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'red'});
+    addEntityWithoutName({'x':x,'y':y,'colour':'rgba(167,243,208,0.5)','radius':20});
 });
 
 mouse.mousedraggers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'green',
+    addEntityWithoutName({'x':x,'y':y,'colour':'rgba(110,231,183,0.2)',
                           'radius':10});
 });
 
@@ -254,19 +256,32 @@ function wsSetup() {
     socket = new WebSocket(url);
     socket.onopen = function() {
         //XXX: TODO What are you going to do here?
+        console.log('open');
     };
     socket.onerror = function(msg) {
         debug("WebSocket Error:" + msg.data);
     };
     socket.onmessage = function(msg) {  
         try {
-            debug("WebSocket Recv:" + msg.data);
-            //XXX: TODO What are you going to do here?            
+            debug(("WebSocket Recv:" + msg.data).slice(0,40)+"...");
+            const dataJSON = JSON.parse(msg.data);
+            console.log(dataJSON);
+            world = dataJSON;
+            drawNextFrame();
         } catch (e) {
             alert("socket on message: " + e);
         }
     }; 
 }
+
+// init world
+fetch("http://"+host+"/world")
+    .then(res=>res.json())
+    .then(json=>{
+        console.log(world);
+        world=json;
+        renderFrame();
+    })
 
 wsSetup();
 

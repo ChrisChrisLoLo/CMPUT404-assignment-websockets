@@ -40,8 +40,8 @@
 
 ** Requirements
 
-   - [ ] Implement the Websockets Javascript parts in the HTML file static/index.htm
-   - [ ] Implement the Websockets send/recv part of the webservice
+   - [X] Implement the Websockets Javascript parts in the HTML file static/index.htm
+   - [X] Implement the Websockets send/recv part of the webservice
    - [ ] Upon update all the clients should recv a websocket update message
    - [ ] Use JSON to communicate (no plain text!)
    - [ ] The webservice can pass all the tests in freetests.py

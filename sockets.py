@@ -26,6 +26,29 @@ app = Flask(__name__)
 sockets = Sockets(app)
 app.debug = True
 
+clients = list()
+
+
+# From Abram Hindle, https://github.com/abramhindle/WebSocketsExamples/blob/master/broadcaster.py
+def send_all(msg):
+    for client in clients:
+        client.put( msg )
+# From Abram Hindle, https://github.com/abramhindle/WebSocketsExamples/blob/master/broadcaster.py
+def send_all_json(obj):
+    send_all( json.dumps(obj) )
+
+# From Abram Hindle, https://github.com/abramhindle/WebSocketsExamples/blob/master/broadcaster.py
+class Client:
+    def __init__(self):
+        self.queue = queue.Queue()
+
+    def put(self, v):
+        self.queue.put_nowait(v)
+
+    def get(self):
+        return self.queue.get()
+
+
 class World:
     def __init__(self):
         self.clear()
@@ -39,11 +62,11 @@ class World:
         entry = self.space.get(entity,dict())
         entry[key] = value
         self.space[entity] = entry
-        self.update_listeners( entity )
+        # self.update_listeners( entity )
 
     def set(self, entity, data):
         self.space[entity] = data
-        self.update_listeners( entity )
+        # self.update_listeners( entity )
 
     def update_listeners(self, entity):
         '''update the set listeners'''
@@ -62,15 +85,8 @@ class World:
 myWorld = World()        
 myWorld.clear()
 
-socketList = [] 
-
 def set_listener( entity, data ):
     ''' do something with the update ! '''
-    pass
-    # for socket in socketList:
-    #     if not socket.closed:
-    #         print('send')
-    #         socket.send(json.dumps(myWorld.world()))
 
 myWorld.add_set_listener( set_listener )
         
@@ -79,38 +95,42 @@ def hello():
     '''Return something coherent here.. perhaps redirect to /static/index.html '''
     return redirect("/static/index.html")
 
+# From Abram Hindle, https://github.com/abramhindle/WebSocketsExamples/blob/master/broadcaster.py
 def read_ws(ws,client):
-    '''A greenlet function that reads from the websocket and updates the world'''
-    pass
-    # # if not ws.closed:
-    # data = ws.receive()
-    # if data:
-    #     info = json.loads(data)
-    #     print(info)
-    #     myWorld.set(info['entity'],info['data'])
-    #     # return json.dumps(info['data'])
+    '''A greenlet function that reads from the websocket'''
+    try:
+        while True:
+            msg = ws.receive()
+            print("WS RECV: %s" % msg)
+            if (msg is not None):
+                packet = json.loads(msg)
+                # get key and store data away
+                for key in packet.keys():
+                    myWorld.set(key,packet[key])
+                send_all_json(packet)
+            else:
+                break
+    except:
+        '''Done'''
 
+# From Abram Hindle, https://github.com/abramhindle/WebSocketsExamples/blob/master/broadcaster.py
 @sockets.route('/subscribe')
 def subscribe_socket(ws):
-    '''Fufill the websocket URL of /subscribe, every update notify the
-       websocket and read updates from the websocket '''
+    client = Client()
+    clients.append(client)
+    g = gevent.spawn( read_ws, ws, client )    
+    print("Subscribing")
     try:
-        socketList.append(ws)
-        # time.sleep(1)
-        while not ws.closed:
-            # read_ws(ws,None)
-            data = ws.receive()
-            if data:
-                print(data)
-                info = json.loads(data)
-                myWorld.set(info['entity'],info['data'])
-                for socket in socketList:
-                    if not socket.closed:
-                        print('send')
-                        socket.send(json.dumps(myWorld.world()))
-    except Exception as e:    
-        print(e)
-        raise e
+        while True:
+            # block here
+            msg = client.get()
+            print(f"Got a message: {msg}")
+            ws.send(msg)
+    except Exception as e:# WebSocketError as e:
+        print("WS Error %s" % e)
+    finally:
+        clients.remove(client)
+        gevent.kill(g)
 
 # I give this to you, this is how you get the raw body/data portion of a post in flask
 # this should come with flask but whatever, it's not my project.
